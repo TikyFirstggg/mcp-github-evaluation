@@ -1,0 +1,58 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # 允许手动触发安全扫描
+    inputs:
+      scan_type:
+        description: 'Type of security scan to run'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - codeql-only
+          - dependencies-only
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Create reports directory
+      run: mkdir -p reports
+    
+    - name: Initialize CodeQL
+      if: github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'codeql-only' || github.event.inputs.scan_type == null
+      uses: github/codeql-action/init@v3
+      with:
+        languages: javascript
+    
+    - name: Run CodeQL Analysis
+      if: github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'codeql-only' || github.event.inputs.scan_type == null
+      uses: github/codeql-action/analyze@v3
+      
+    - name: Run dependency check
+      if: github.event.inputs.scan_type == 'dependencies-only'
+      run: echo "Dependency check placeholder - Dependabot handles this automatically"
+      
+    - name: Display scan type
+      run: echo "Running ${{ github.event.inputs.scan_type || 'full' }} security scan"
